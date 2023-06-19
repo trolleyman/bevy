@@ -6,7 +6,7 @@ use crate::{
         RawVertexState, RenderPipeline, RenderPipelineDescriptor, Shader, ShaderImport,
         ShaderProcessor, ShaderReflectError,
     },
-    renderer::RenderDevice,
+    renderer::{RenderAdapter, RenderDevice},
     Extract,
 };
 use bevy_asset::{AssetEvent, Assets, Handle};
@@ -165,6 +165,7 @@ impl ShaderCache {
     #[allow(clippy::result_large_err)]
     fn get(
         &mut self,
+        render_adapter: &RenderAdapter,
         render_device: &RenderDevice,
         pipeline: CachedPipelineId,
         handle: &Handle<Shader>,
@@ -216,9 +217,10 @@ impl ShaderCache {
                     &self.shaders,
                     &self.import_path_shaders,
                 )?;
-                let module_descriptor = match processed
-                    .get_module_descriptor(render_device.features())
-                {
+                let module_descriptor = match processed.get_module_descriptor(
+                    render_adapter.get_downlevel_capabilities().flags,
+                    render_device.features(),
+                ) {
                     Ok(module_descriptor) => module_descriptor,
                     Err(err) => {
                         return Err(PipelineCacheError::AsModuleDescriptorError(err, processed));
@@ -359,6 +361,7 @@ impl LayoutCache {
 pub struct PipelineCache {
     layout_cache: LayoutCache,
     shader_cache: ShaderCache,
+    adapter: RenderAdapter,
     device: RenderDevice,
     pipelines: Vec<CachedPipeline>,
     waiting_pipelines: HashSet<CachedPipelineId>,
@@ -371,8 +374,9 @@ impl PipelineCache {
     }
 
     /// Create a new pipeline cache associated with the given render device.
-    pub fn new(device: RenderDevice) -> Self {
+    pub fn new(adapter: RenderAdapter, device: RenderDevice) -> Self {
         Self {
+            adapter,
             device,
             layout_cache: default(),
             shader_cache: default(),
@@ -536,6 +540,7 @@ impl PipelineCache {
         descriptor: &RenderPipelineDescriptor,
     ) -> CachedPipelineState {
         let vertex_module = match self.shader_cache.get(
+            &self.adapter,
             &self.device,
             id,
             &descriptor.vertex.shader,
@@ -549,6 +554,7 @@ impl PipelineCache {
 
         let fragment_data = if let Some(fragment) = &descriptor.fragment {
             let fragment_module = match self.shader_cache.get(
+                &self.adapter,
                 &self.device,
                 id,
                 &fragment.shader,
@@ -621,6 +627,7 @@ impl PipelineCache {
         descriptor: &ComputePipelineDescriptor,
     ) -> CachedPipelineState {
         let compute_module = match self.shader_cache.get(
+            &self.adapter,
             &self.device,
             id,
             &descriptor.shader,

@@ -12,7 +12,7 @@ use std::{borrow::Cow, marker::Copy, ops::Deref, path::PathBuf, str::FromStr};
 use thiserror::Error;
 #[cfg(feature = "shader_format_spirv")]
 use wgpu::util::make_spirv;
-use wgpu::{Features, ShaderModuleDescriptor, ShaderSource};
+use wgpu::{DownlevelFlags, Features, ShaderModuleDescriptor, ShaderSource};
 
 define_atomic_id!(ShaderId);
 
@@ -122,7 +122,11 @@ impl ProcessedShader {
         }
     }
 
-    pub fn reflect(&self, features: Features) -> Result<ShaderReflection, ShaderReflectError> {
+    pub fn reflect(
+        &self,
+        downlevel_flags: DownlevelFlags,
+        features: Features,
+    ) -> Result<ShaderReflection, ShaderReflectError> {
         let module = match &self {
             // TODO: process macros here
             ProcessedShader::Wgsl(source) => naga::front::wgsl::parse_str(source)?,
@@ -150,7 +154,11 @@ impl ProcessedShader {
                 unimplemented!("Enable feature \"shader_format_spirv\" to use SPIR-V shaders")
             }
         };
-        const CAPABILITIES: &[(Features, Capabilities)] = &[
+        const DOWNLEVEL_FLAGS_CAPABILITIES: &[(DownlevelFlags, Capabilities)] = &[(
+            DownlevelFlags::MULTISAMPLED_SHADING,
+            Capabilities::MULTISAMPLED_SHADING,
+        )];
+        const FEATURES_CAPABILITIES: &[(Features, Capabilities)] = &[
             (Features::PUSH_CONSTANTS, Capabilities::PUSH_CONSTANT),
             (Features::SHADER_F64, Capabilities::FLOAT64),
             (
@@ -171,7 +179,12 @@ impl ProcessedShader {
             ),
         ];
         let mut capabilities = Capabilities::empty();
-        for (feature, capability) in CAPABILITIES {
+        for (downlevel_flag, capability) in DOWNLEVEL_FLAGS_CAPABILITIES {
+            if downlevel_flags.contains(*downlevel_flag) {
+                capabilities |= *capability;
+            }
+        }
+        for (feature, capability) in FEATURES_CAPABILITIES {
             if features.contains(*feature) {
                 capabilities |= *capability;
             }
@@ -188,6 +201,7 @@ impl ProcessedShader {
 
     pub fn get_module_descriptor(
         &self,
+        _downlevel_flags: DownlevelFlags,
         _features: Features,
     ) -> Result<ShaderModuleDescriptor, AsModuleDescriptorError> {
         Ok(ShaderModuleDescriptor {
@@ -198,7 +212,7 @@ impl ProcessedShader {
                     // Parse and validate the shader early, so that (e.g. while hot reloading) we can
                     // display nicely formatted error messages instead of relying on just displaying the error string
                     // returned by wgpu upon creating the shader module.
-                    let _ = self.reflect(_features)?;
+                    let _ = self.reflect(_downlevel_flags, _features)?;
 
                     ShaderSource::Wgsl(source.clone())
                 }
