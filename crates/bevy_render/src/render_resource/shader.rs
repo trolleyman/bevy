@@ -154,10 +154,6 @@ impl ProcessedShader {
                 unimplemented!("Enable feature \"shader_format_spirv\" to use SPIR-V shaders")
             }
         };
-        const DOWNLEVEL_FLAGS_CAPABILITIES: &[(DownlevelFlags, Capabilities)] = &[(
-            DownlevelFlags::MULTISAMPLED_SHADING,
-            Capabilities::MULTISAMPLED_SHADING,
-        )];
         const FEATURES_CAPABILITIES: &[(Features, Capabilities)] = &[
             (Features::PUSH_CONSTANTS, Capabilities::PUSH_CONSTANT),
             (Features::SHADER_F64, Capabilities::FLOAT64),
@@ -170,14 +166,27 @@ impl ProcessedShader {
                 Capabilities::SAMPLED_TEXTURE_AND_STORAGE_BUFFER_ARRAY_NON_UNIFORM_INDEXING,
             ),
             (
+                Features::UNIFORM_BUFFER_AND_STORAGE_TEXTURE_ARRAY_NON_UNIFORM_INDEXING,
+                Capabilities::UNIFORM_BUFFER_AND_STORAGE_TEXTURE_ARRAY_NON_UNIFORM_INDEXING,
+            ),
+            (
                 Features::SAMPLED_TEXTURE_AND_STORAGE_BUFFER_ARRAY_NON_UNIFORM_INDEXING,
                 Capabilities::SAMPLER_NON_UNIFORM_INDEXING,
             ),
             (
-                Features::UNIFORM_BUFFER_AND_STORAGE_TEXTURE_ARRAY_NON_UNIFORM_INDEXING,
-                Capabilities::UNIFORM_BUFFER_AND_STORAGE_TEXTURE_ARRAY_NON_UNIFORM_INDEXING,
+                Features::TEXTURE_FORMAT_16BIT_NORM,
+                Capabilities::STORAGE_TEXTURE_16BIT_NORM_FORMATS,
+            ),
+            (Features::MULTIVIEW, Capabilities::MULTIVIEW),
+            (
+                Features::SHADER_EARLY_DEPTH_TEST,
+                Capabilities::EARLY_DEPTH_TEST,
             ),
         ];
+        const DOWNLEVEL_FLAGS_CAPABILITIES: &[(DownlevelFlags, Capabilities)] = &[(
+            DownlevelFlags::MULTISAMPLED_SHADING,
+            Capabilities::MULTISAMPLED_SHADING,
+        )];
         let mut capabilities = Capabilities::empty();
         for (downlevel_flag, capability) in DOWNLEVEL_FLAGS_CAPABILITIES {
             if downlevel_flags.contains(*downlevel_flag) {
